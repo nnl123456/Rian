@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>GitHub图床</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+<h2>图床上传</h2>
+<div>
+Token：<input type="text" id="token" style="width:600px;"><br>
+仓库：<input type="text" id="repo" placeholder="用户名/仓库名"><br>
+分支：<input type="text" id="branch" value="main"><br>
+<input type="file" id="file" multiple accept="image/*">
+<button onclick="upload()">上传图片</button>
+</div>
+<div id="result"></div>
+<script>
+const tokenInput = document.getElementById('token');
+const repoInput = document.getElementById('repo');
+const branchInput = document.getElementById('branch');
+const fileInput = document.getElementById('file');
+const resultDom = document.getElementById('result');
+
+tokenInput.value = localStorage.getItem('gh_token') || '';
+repoInput.value = localStorage.getItem('gh_repo') || '';
+branchInput.value = localStorage.getItem('gh_branch') || 'main';
+
+tokenInput.onchange = ()=>localStorage.setItem('gh_token',tokenInput.value);
+repoInput.onchange = ()=>localStorage.setItem('gh_repo',repoInput.value);
+branchInput.onchange = ()=>localStorage.setItem('gh_branch',branchInput.value);
+
+async function upload(){
+  const token = tokenInput.value.trim();
+  const repo = repoInput.value.trim();
+  const branch = branchInput.value.trim();
+  const files = fileInput.files;
+  if(!token||!repo||!files.length) return alert('填好Token、仓库并选择图片');
+  resultDom.innerText="上传中...\n";
+  for(const f of files){
+    const name = Date.now()+"_"+f.name;
+    const buf = await f.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    const res = await fetch(`https://api.github.com/repos/${repo}/contents/${name}?ref=${branch}`,{
+      method:"PUT",
+      headers:{Authorization:`token ${token}`,"Content-Type":"application/json"},
+      body:JSON.stringify({message:`upload ${f.name}`,content:base64,branch})
+    });
+    const data = await res.json();
+    if(res.ok){
+      const link = `https://${repo.split('/')[0]}.github.io/${repo.split('/')[1]}/${name}`;
+      resultDom.innerText += link + "\n";
+    }else{
+      resultDom.innerText += `失败:${data.message}\n`;
+    }
+  }
+}
+</script>
+</body>
+</html>
